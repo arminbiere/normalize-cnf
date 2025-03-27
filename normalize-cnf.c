@@ -85,11 +85,20 @@ int main(int argc, char **argv) {
   if (!input_file)
     die("can not read input file '%s'", input_path);
   int ch;
-  while ((ch = getc(input_file)) == 'c')
-    while ((ch = getc(input_file)) != '\n')
-      if (ch == EOF)
-      END_OF_FILE_IN_COMMENT:
-        die("end-of-file in comment");
+  for (;;) {
+    ch = getc(input_file);
+    if (ch == 'c') {
+      while ((ch = getc(input_file)) != '\n')
+        if (ch == EOF)
+        END_OF_FILE_IN_COMMENT:
+          die("end-of-file in comment");
+    } else if (ch == ' ' || ch == '\t' || ch == '\r') {
+      while ((ch = getc(input_file)) != '\n')
+        if (ch == EOF)
+          die("unexpected end-of-file after white-space");
+    } else
+      break;
+  }
   if (ch != 'p')
     die("expected 'p cnf ...' header or 'c' comment");
   for (const char *p = " cnf "; *p; p++)
