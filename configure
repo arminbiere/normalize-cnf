@@ -1,0 +1,26 @@
+#!/bin/sh
+debug=no
+while [ $# -gt 0 ]
+do
+  case "$1" in
+    -g|--debug) debug=yes;;
+    *) echo "usage: configure [-g | --debug]";;
+  esac
+  shift
+done
+COMPILE="gcc -Wall"
+if [ debug = yes ]
+then
+  COMPILE="$COMPILE -g"
+else
+  COMPILE="$COMPILE -O3 -DNDEBUG"
+fi
+echo "[configure] compiling with '$COMPILE'"
+cat<<EOF>makefile
+normalize-cnf: normalize-cnf.c makefile
+	$COMPILE -o \$@ \$<
+clean:
+	rm -f normalize-cnf makefile
+.PHONY: clean
+EOF
+echo "[configure] generated 'makefile' (run 'make')"
