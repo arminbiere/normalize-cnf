@@ -26,10 +26,11 @@ static const char * usage =
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 static const char *input_path, *output_path;
 static FILE *input_file, *output_file;
-static bool close_input, close_output;
+static int close_input, close_output;
 
 static void die(const char *fmt, ...) {
   fprintf(stderr, "normalize: error in '%s': ", input_path);
@@ -39,6 +40,16 @@ static void die(const char *fmt, ...) {
   va_end(ap);
   fputc('\n', stderr);
   exit(1);
+}
+
+static bool has_suffix(const char *a, const char *b) {
+  size_t k = strlen(a), l = strlen(b);
+  return k >= l && !strcmp(a + k - l, b);
+}
+
+static bool exists_file(const char *path) {
+  struct stat buf;
+  return !stat(path, &buf);
 }
 
 int main(int argc, char **argv) {
@@ -54,12 +65,25 @@ int main(int argc, char **argv) {
     else
       input_path = arg;
   }
-  if (!input_path || !strcmp(input_path, "-"))
-    input_file = stdin, assert(!close_input), input_path = "<stdin>";
-  else if (!(input_file = fopen(input_path, "r")))
+  if (!input_path || !strcmp(input_path, "-")) {
+    input_file = stdin;
+    input_path = "<stdin>";
+    close_input = 0;
+  } else if (!exists_file(input_path))
+    die("input file '%s' does not exist", input_path);
+  else if (has_suffix(input_path, ".xz")) {
+    size_t len = strlen(input_path) + 16;
+    char *cmd = malloc(len);
+    snprintf(cmd, len, "xz -d -c %s", input_path);
+    input_file = popen(cmd, "r");
+    free(cmd);
+    close_input = 2;
+  } else {
+    input_file = fopen(input_path, "r");
+    close_input = 1;
+  }
+  if (!input_file)
     die("can not read input file '%s'", input_path);
-  else
-    close_input = true;
   int ch;
   while ((ch = getc(input_file)) == 'c')
     while ((ch = getc(input_file)) != '\n')
@@ -110,12 +134,22 @@ int main(int argc, char **argv) {
         die("expected white-space and a new-line after clauses");
   } else if (ch != '\n')
     goto EXPECTED_NEW_LINE_AFTER_HEADER;
-  if (!output_path || !strcmp(output_path, "-"))
-    output_file = stdout, assert(!close_output);
-  else if (!(output_file = fopen(output_path, "w")))
+  if (!output_path || !strcmp(output_path, "-")) {
+    output_file = stdout;
+    close_output = 0;
+  } else if (has_suffix(output_path, ".xz")) {
+    size_t len = strlen(output_path) + 16;
+    char *cmd = malloc(len);
+    snprintf(cmd, len, "xz -e -c > %s", output_path);
+    output_file = popen(cmd, "w");
+    free(cmd);
+    close_output = 2;
+  } else {
+    output_file = fopen(output_path, "w");
+    close_output = 1;
+  }
+  if (!output_file)
     die("can not write output file '%s'", output_path);
-  else
-    close_input = true;
   fprintf(output_file, "p cnf %d %d\n", variables, clauses);
   int parsed = 0, lit = 0;
   for (;;) {
@@ -173,8 +207,10 @@ int main(int argc, char **argv) {
     else
       fputs("0\n", output_file);
   }
-  if (close_input)
+  if (close_input == 1)
     fclose(input_file);
+  if (close_input == 2)
+    pclose(input_file);
   if (close_output)
     fclose(output_file);
   return 0;
