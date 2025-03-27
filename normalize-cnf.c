@@ -163,8 +163,12 @@ int main(int argc, char **argv) {
     }
     if (ch == 'c') {
       while ((ch = getc(input_file)) != '\n')
-        if (ch == EOF)
-          goto END_OF_FILE_IN_COMMENT;
+        if (ch == EOF) {
+          if (lit || parsed < clauses)
+            goto END_OF_FILE_IN_COMMENT;
+          else
+            break;
+        }
       continue;
     }
     if (ch == '\r')
@@ -197,8 +201,12 @@ int main(int argc, char **argv) {
       die("expected white-space after literal");
     if (ch == 'c') {
       while ((ch = getc(input_file)) != '\n')
-        if (ch == EOF)
-          goto END_OF_FILE_IN_COMMENT;
+        if (ch == EOF) {
+          if (lit || parsed < clauses)
+            goto END_OF_FILE_IN_COMMENT;
+          else
+            break;
+        }
     }
     if (lit)
       fprintf(output_file, "%d ", sign * lit);
