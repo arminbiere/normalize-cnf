@@ -1,4 +1,4 @@
-// Copyright (c), 2023, Armin Biere, University of Freiburg.
+// Copyright (c), 2023-2025, Armin Biere, University of Freiburg.
 
 // This is a tool to normalize CNFs in DIMACS format by removing all
 // comments and white-space (it also checks for syntax issues).
