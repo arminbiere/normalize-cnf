@@ -8,12 +8,15 @@
 static const char * usage =
 "usage: normalize [ -h ] [ <input> [ <output> ] ]\n"
 "\n"
-"  -h        print this comand line option summary\n"
-"  <input>   input file expected to be in DIMACS format\n"
-"  <output>  output file produced in DIMACS format\n"
+"  -h | --help  print this comand line option summary\n"
+"  -g | --gbd   GBD normalize (delete 'p' line, '\n' -> ' ')\n"
+"  <input>      input file expected to be in DIMACS format\n"
+"  <output>     output file produced in DIMACS format\n"
 "\n"
 "The file arguments can be '-' to denote '<stdin>' respectively '<stdout>\n"
-"which are also the default files if not specified.\n"
+"which are also the default files if not specified.  If further the path\n"
+"of a file has a '.xz' suffix, it is decompressed respectively compressed\n"
+"using 'xz' on-the-fly (through a pipe).\n"
 ;
 
 // clang-format on
@@ -31,6 +34,7 @@ static const char * usage =
 static const char *input_path, *output_path;
 static FILE *input_file, *output_file;
 static int close_input, close_output;
+static bool gbd;
 
 static void die(const char *fmt, ...) {
   fprintf(stderr, "normalize: error in '%s': ", input_path);
@@ -55,10 +59,12 @@ static bool exists_file(const char *path) {
 int main(int argc, char **argv) {
   for (int i = 1; i != argc; i++) {
     const char *arg = argv[i];
-    if (!strcmp(arg, "-h")) {
+    if (!strcmp(arg, "-h") || !strcmp(arg, "--help")) {
       fputs(usage, stdout);
       exit(0);
-    } else if (output_path)
+    } else if (!strcmp(arg, "-g") || !strcmp(arg, "--gbd"))
+      gbd = true;
+    else if (output_path)
       die("too many files");
     else if (input_path)
       output_path = arg;
@@ -96,7 +102,7 @@ int main(int argc, char **argv) {
       while ((ch = getc(input_file)) != '\n')
         if (ch == EOF)
           die("unexpected end-of-file after white-space");
-    } else
+    } else if (ch != '\n')
       break;
   }
   if (ch != 'p')
@@ -159,8 +165,10 @@ int main(int argc, char **argv) {
   }
   if (!output_file)
     die("can not write output file '%s'", output_path);
-  fprintf(output_file, "p cnf %d %d\n", variables, clauses);
+  if (!gbd)
+    fprintf(output_file, "p cnf %d %d\n", variables, clauses);
   int parsed = 0, lit = 0;
+  bool first = true;
   for (;;) {
     ch = getc(input_file);
     if (ch == EOF) {
@@ -192,6 +200,12 @@ int main(int argc, char **argv) {
     if (!isdigit(ch))
     INVALID_LITERAL:
       die("invalid literal");
+    if (gbd && !lit) {
+      if (first)
+        first = false;
+      else
+        fputc(' ', output_file);
+    }
     lit = ch - '0';
     while (isdigit(ch = getc(input_file))) {
       if (INT_MAX / 10 < lit)
@@ -221,6 +235,8 @@ int main(int argc, char **argv) {
       fprintf(output_file, "%d ", sign * lit);
     else if (parsed++ == clauses)
       die("too many clauses");
+    else if (gbd)
+      fputc('0', output_file);
     else
       fputs("0\n", output_file);
   }
