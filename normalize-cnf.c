@@ -8,7 +8,7 @@
 static const char * usage =
 "usage: normalize [ -h ] [ <input> [ <output> ] ]\n"
 "\n"
-"  -h | --help  print this comand line option summary\n"
+"  -h | --help  print this command line option summary\n"
 "  -g | --gbd   GBD normalize (no 'p' line, strip last '\\n', '\\n' -> ' ')\n"
 "  <input>      input file expected to be in DIMACS format\n"
 "  <output>     output file produced in DIMACS format\n"
